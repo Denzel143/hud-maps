@@ -13,6 +13,7 @@
         body, html {
             margin: 0; padding: 0; width: 100vw; height: 100vh;
             background-color: #000; overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         /* Kontainer Utama untuk mempermudah rotasi CSS */
@@ -22,7 +23,7 @@
             display: flex; flex-direction: column;
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            transition: transform 0.5s, width 0.5s, height 0.5s;
+            transition: transform 0.5s, width 0.5s, height 0.5s, background-color 0.3s, color 0.3s;
         }
 
         /* HUD MODE - Jika orientasi ponsel sudah Lanskap (hanya Mirror) */
@@ -42,11 +43,13 @@
         /* TOP BAR: Pencarian & Tombol */
         #top-bar {
             display: flex; padding: 10px; gap: 10px; background: #111; z-index: 1000;
+            transition: background-color 0.3s;
         }
         #search-wrapper { position: relative; flex-grow: 1; }
         #search-input {
             width: 100%; padding: 10px; box-sizing: border-box; background: #222; 
             border: 1px solid #444; color: #fff; border-radius: 5px;
+            transition: background-color 0.3s, color 0.3s;
         }
         #search-results {
             position: absolute; top: 100%; left: 0; right: 0; background: #333;
@@ -61,6 +64,7 @@
         #btn-start { background: #28a745; display: none; }
         #btn-cancel { background: #ffc107; color: black; display: none; }
         #btn-hud { background: #dc3545; }
+        #btn-theme { background: #555; font-size: 16px; padding: 10px; } /* Tombol Tema */
 
         /* MAP CONTAINER */
         #map { flex-grow: 1; width: 100%; z-index: 1; }
@@ -72,6 +76,7 @@
         #dashboard {
             height: 100px; background: #111; display: flex; 
             flex-direction: column; justify-content: center; padding: 5px 15px; z-index: 1000;
+            transition: background-color 0.3s;
         }
         .dash-row-1 { display: flex; justify-content: space-between; align-items: center; font-size: 24px; font-weight: bold;}
         .dash-row-2 { font-size: 16px; color: #aaa; text-align: center; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
@@ -97,6 +102,21 @@
             border-radius: 50%; display: flex; align-items: center; 
             justify-content: center; font-size: 14px; box-shadow: 0 0 5px #000;
         }
+
+        /* --- LIGHT MODE STYLES --- */
+        body.light-mode, body.light-mode #app { background-color: #f8f9fa; color: #212529; }
+        body.light-mode #top-bar { background: #e9ecef; }
+        body.light-mode #dashboard { background: #e9ecef; }
+        body.light-mode #search-input { background: #ffffff; border: 1px solid #ced4da; color: #212529; }
+        body.light-mode #search-results { background: #ffffff; color: #212529; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        body.light-mode #search-results li { border-bottom: 1px solid #e9ecef; }
+        body.light-mode .dash-row-2 { color: #6c757d; }
+        body.light-mode .highlight, 
+        body.light-mode #val-instruction, 
+        body.light-mode .car-icon, 
+        body.light-mode #val-odometer { color: #0056b3; } /* Biru gelap pengganti hijau neon */
+        body.light-mode #btn-theme { background: #adb5bd; color: #000; }
+        body.light-mode .maneuver-map-icon { background: #fff; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
@@ -107,6 +127,7 @@
                 <input type="text" id="search-input" placeholder="Cari lokasi tujuan..." autocomplete="off">
                 <ul id="search-results"></ul>
             </div>
+            <button id="btn-theme">☀️</button>
             <button id="btn-cancel">BATAL</button>
             <button id="btn-start">START</button>
             <button id="btn-hud">HUD</button>
@@ -137,7 +158,7 @@
 
     <script>
         // --- INISIALISASI VARIABEL ---
-        let map, userMarker, destinationMarker, routingControl, traversedLine;
+        let map, userMarker, destinationMarker, routingControl, traversedLine, tileLayer;
         let userLat = 0, userLng = 0, currentHeading = 0;
         let isNavigating = false;
         let wakeLock = null;
@@ -164,10 +185,11 @@
         const btnStart = document.getElementById('btn-start');
         const btnCancel = document.getElementById('btn-cancel');
         const btnHud = document.getElementById('btn-hud');
+        const btnTheme = document.getElementById('btn-theme');
 
         // --- SETUP PETA ---
         map = L.map('map', { zoomControl: false }).setView([-6.200000, 106.816666], 15);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19
         }).addTo(map);
 
@@ -185,7 +207,7 @@
         // --- HELPER: TEXT-TO-SPEECH ---
         function speak(text) {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Hentikan suara sebelumnya jika ada
+                window.speechSynthesis.cancel(); 
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'id-ID';
                 utterance.rate = 1.0; 
@@ -280,7 +302,6 @@
                             // --- LOGIKA INSTRUKSI (HUD & VOICE) ---
                             let nextInstIndex = -1;
                             for (let i = 0; i < routeInstructions.length; i++) {
-                                // Cari instruksi manuver pertama yang posisinya berada di depan pengguna
                                 if (routeInstructions[i].index > closestIndex) {
                                     nextInstIndex = i;
                                     break;
@@ -289,16 +310,14 @@
 
                             if (nextInstIndex !== -1) {
                                 const nextInst = routeInstructions[nextInstIndex];
-                                // Jarak sisa dari posisi sekarang ke titik belokan
                                 const distToManeuver = map.distance(currentPos, routeCoordinates[nextInst.index]);
                                 
                                 elTurnIcon.innerText = getDirectionEmoji(nextInst.modifier, nextInst.type);
                                 elInstruction.innerText = `${nextInst.text} (${Math.round(distToManeuver)}m)`;
 
-                                // Voice Nav: Bacakan instruksi jika jarak < 100m dan belum dibacakan
                                 if (distToManeuver < 100 && spokenInstructionIndex !== nextInstIndex) {
                                     speak(`Dalam ${Math.round(distToManeuver)} meter, ${nextInst.text}`);
-                                    spokenInstructionIndex = nextInstIndex; // Kunci agar tidak diulang-ulang
+                                    spokenInstructionIndex = nextInstIndex; 
                                 }
                             } else {
                                 elTurnIcon.innerText = "🏁";
@@ -365,20 +384,17 @@
                 routeCoordinates = routes[0].coordinates;
                 routeInstructions = routes[0].instructions;
                 offRouteCount = 0; 
-                spokenInstructionIndex = -1; // Reset memory voice
+                spokenInstructionIndex = -1; 
                 traversedLine.setLatLngs([]); 
                 
-                // --- HAPUS & GAMBAR ULANG MARKER MANUVER DI PETA ---
                 maneuverMarkers.forEach(m => map.removeLayer(m));
                 maneuverMarkers = [];
 
                 routeInstructions.forEach((inst, idx) => {
-                    // Abaikan titik awal (idx 0), buat marker untuk titik belok
                     if (inst.index && inst.text && idx > 0) {
                         const coord = routeCoordinates[inst.index];
                         const iconSymbol = getDirectionEmoji(inst.modifier, inst.type);
                         
-                        // Buat ikon bulat dengan panah di dalamnya
                         const mIcon = L.divIcon({
                             className: '',
                             html: `<div class="maneuver-map-icon" style="width: 24px; height: 24px;">${iconSymbol}</div>`,
@@ -400,6 +416,20 @@
                 btnCancel.style.display = 'block';
             });
         }
+
+        // --- TOMBOL TEMA (LIGHT/DARK MODE) ---
+        btnTheme.addEventListener('click', () => {
+            const body = document.body;
+            body.classList.toggle('light-mode');
+            
+            if (body.classList.contains('light-mode')) {
+                btnTheme.innerText = '🌙';
+                tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
+            } else {
+                btnTheme.innerText = '☀️';
+                tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+            }
+        });
 
         // --- TOMBOL START (MULAI NAVIGASI) ---
         btnStart.addEventListener('click', () => {
