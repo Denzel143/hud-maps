@@ -9,146 +9,207 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
 
     <style>
-        /* BASE LAYOUT */
+        /* BASE & RESET */
         body, html {
-            margin: 0; padding: 0; width: 100vw; height: 100vh;
+            margin: 0; padding: 0; width: 100vw; height: 100dvh;
             background-color: #000; overflow: hidden;
             transition: background-color 0.3s, color 0.3s;
+            font-family: Arial, sans-serif; color: #fff;
         }
 
-        /* Kontainer Utama untuk mempermudah rotasi CSS */
         #app {
-            width: 100vw; height: 100vh;
-            background-color: #000; color: #fff; font-family: Arial, sans-serif;
-            display: flex; flex-direction: column;
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            transition: transform 0.5s, width 0.5s, height 0.5s, background-color 0.3s, color 0.3s;
+            width: 100vw; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
         }
 
-        /* HUD MODE - Jika orientasi ponsel sudah Lanskap (hanya Mirror) */
-        body.hud-mode #app {
-            transform: translate(-50%, -50%) scaleX(-1);
-        }
-
-        /* HUD MODE - Jika orientasi ponsel Potret (Putar Layout ke Lanskap + Mirror) */
-        @media (orientation: portrait) {
-            body.hud-mode #app {
-                width: 100vh;
-                height: 100vw;
-                transform: translate(-50%, -50%) rotate(90deg) scaleX(-1);
-            }
-        }
-
-        /* TOP BAR: Pencarian & Tombol */
-        #top-bar {
-            display: flex; padding: 10px; gap: 10px; background: #111; z-index: 1000;
-            transition: background-color 0.3s;
-        }
-        #search-wrapper { position: relative; flex-grow: 1; }
+        /* SHARED ELEMENTS (Dipindah-pindah via JS) */
+        #search-wrapper { width: 100%; position: relative; }
         #search-input {
             width: 100%; padding: 10px; box-sizing: border-box; background: #222; 
-            border: 1px solid #444; color: #fff; border-radius: 5px;
+            border: 1px solid #444; color: #fff; border-radius: 5px; font-size: 16px;
             transition: background-color 0.3s, color 0.3s;
         }
         #search-results {
-            position: absolute; top: 100%; left: 0; right: 0; background: #333;
+            position: absolute; top: 100%; left: 0; right: 0; background: #333; z-index: 2000;
             list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; display: none;
         }
         #search-results li { padding: 10px; border-bottom: 1px solid #444; cursor: pointer; }
         
-        button {
-            padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;
-            font-weight: bold; background: #007bff; color: white;
-        }
-        #btn-start { background: #28a745; display: none; }
-        #btn-cancel { background: #ffc107; color: black; display: none; }
-        #btn-hud { background: #dc3545; }
-        #btn-theme { background: #555; font-size: 16px; padding: 10px; } /* Tombol Tema */
-
-        /* MAP CONTAINER */
-        #map { flex-grow: 1; width: 100%; z-index: 1; }
-
-        /* Sembunyikan UI Leaflet bawaan agar bersih */
+        #map { width: 100%; height: 100%; z-index: 1; }
         .leaflet-control-zoom, .leaflet-routing-container { display: none !important; }
 
-        /* DASHBOARD BAWAH */
-        #dashboard {
-            height: 100px; background: #111; display: flex; 
-            flex-direction: column; justify-content: center; padding: 5px 15px; z-index: 1000;
-            transition: background-color 0.3s;
+        /* BUTTONS */
+        button {
+            padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;
+            font-weight: bold; background: #007bff; color: white; font-size: 14px;
         }
-        .dash-row-1 { display: flex; justify-content: space-between; align-items: center; font-size: 24px; font-weight: bold;}
-        .dash-row-2 { font-size: 16px; color: #aaa; text-align: center; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        .highlight { color: #00ff00; }
-        
-        /* Instruksi Navigasi (Tengah) */
-        #instruction-container {
-            display: flex; align-items: center; justify-content: center; flex-grow: 1; margin: 0 15px; overflow: hidden;
-        }
-        #val-turn-icon { font-size: 32px; color: #ffcc00; margin-right: 10px; }
-        #val-instruction { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #00ff00; }
+        .btn-start { background: #28a745; display: none; }
+        .btn-cancel { background: #ffc107; color: black; display: none; }
+        .btn-hud { background: #dc3545; }
+        .btn-theme { background: #555; font-size: 16px; padding: 10px; }
 
-        /* IKON KENDARAAN (Panah) */
+        /* UTILITIES */
+        .highlight { color: #00ff00; }
         .car-icon {
             font-size: 24px; color: #00ff00; font-weight: bold;
             display: flex; justify-content: center; align-items: center;
             text-shadow: 0 0 5px #000; transition: transform 0.2s linear;
         }
-        
-        /* Ikon Manuver di Peta */
         .maneuver-map-icon {
             background: #222; border: 2px solid #ffcc00; color: #ffcc00; 
             border-radius: 50%; display: flex; align-items: center; 
             justify-content: center; font-size: 14px; box-shadow: 0 0 5px #000;
         }
 
-        /* --- LIGHT MODE STYLES --- */
-        body.light-mode, body.light-mode #app { background-color: #f8f9fa; color: #212529; }
-        body.light-mode #top-bar { background: #e9ecef; }
-        body.light-mode #dashboard { background: #e9ecef; }
+        /* =========================================
+           NORMAL LAYOUT MODE 
+           ========================================= */
+        #layout-normal {
+            display: flex; flex-direction: column; height: 100%; width: 100%;
+        }
+        #top-bar { display: flex; padding: 10px; gap: 10px; background: #111; z-index: 1000; }
+        #normal-search-slot { flex-grow: 1; display: flex; }
+        #normal-map-slot { flex-grow: 1; position: relative; }
+        #dashboard {
+            height: 100px; background: #111; display: flex; 
+            flex-direction: column; justify-content: center; padding: 5px 15px; z-index: 1000;
+        }
+        .dash-row-1 { display: flex; justify-content: space-between; align-items: center; font-size: 24px; font-weight: bold;}
+        .dash-row-2 { font-size: 16px; color: #aaa; text-align: center; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .instruction-container {
+            display: flex; align-items: center; justify-content: center; flex-grow: 1; margin: 0 15px; overflow: hidden;
+        }
+        .val-turn-icon { font-size: 32px; color: #ffcc00; margin-right: 10px; }
+        .val-instruction { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #00ff00; }
+
+        /* =========================================
+           HUD LAYOUT MODE (MIRRORED)
+           ========================================= */
+        body.hud-mode #app { transform: scaleX(-1); } /* Mirror effect */
+        
+        #layout-hud {
+            display: none; height: 100%; width: 100%; flex-direction: row; background: #000; overflow: hidden;
+        }
+        
+        /* HUD KIRI */
+        .hud-left {
+            width: 50%; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; 
+            border-right: 2px solid #333; justify-content: space-between;
+        }
+        .hud-speed-container {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center; flex-direction: column;
+        }
+        .hud-speed-container .val-speed { font-size: 120px; font-weight: bold; color: #00ff00; line-height: 1; }
+        .hud-speed-container .hud-speed-unit { font-size: 30px; color: #aaa; margin-top: -10px; }
+        
+        .hud-middle-left {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+        .hud-clock { font-size: 40px; font-weight: bold; color: #fff; width: 40%; }
+        .hud-nav-info { display: flex; align-items: center; justify-content: flex-end; width: 60%; }
+        .hud-nav-info .val-turn-icon { font-size: 50px; margin-right: 10px; }
+        .hud-nav-info .val-instruction { font-size: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .hud-buttons { display: flex; gap: 10px; justify-content: flex-start; }
+
+        /* HUD KANAN */
+        .hud-right {
+            width: 50%; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; justify-content: space-between; gap: 10px;
+        }
+        #hud-search-slot { width: 100%; }
+        #hud-map-slot { flex-grow: 1; border: 2px solid #333; border-radius: 10px; overflow: hidden; position: relative; }
+        .hud-dest-container {
+            background: #111; padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 5px;
+        }
+        .hud-dest-name { font-size: 20px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hud-eta-info { display: flex; justify-content: space-between; font-size: 20px; color: #aaa; }
+
+        /* =========================================
+           LIGHT MODE
+           ========================================= */
+        body.light-mode { background-color: #f8f9fa; color: #212529; }
+        body.light-mode #top-bar, body.light-mode #dashboard, body.light-mode .hud-dest-container { background: #e9ecef; }
+        body.light-mode #layout-hud { background: #f8f9fa; }
         body.light-mode #search-input { background: #ffffff; border: 1px solid #ced4da; color: #212529; }
         body.light-mode #search-results { background: #ffffff; color: #212529; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         body.light-mode #search-results li { border-bottom: 1px solid #e9ecef; }
-        body.light-mode .dash-row-2 { color: #6c757d; }
+        body.light-mode .dash-row-2, body.light-mode .hud-eta-info, body.light-mode .hud-speed-unit { color: #6c757d; }
+        body.light-mode .hud-clock { color: #000; }
         body.light-mode .highlight, 
-        body.light-mode #val-instruction, 
+        body.light-mode .val-instruction, 
+        body.light-mode .val-speed, 
         body.light-mode .car-icon, 
-        body.light-mode #val-odometer { color: #0056b3; } /* Biru gelap pengganti hijau neon */
-        body.light-mode #btn-theme { background: #adb5bd; color: #000; }
+        body.light-mode .val-odometer { color: #0056b3; } /* Biru sebagai ganti hijau neon */
+        body.light-mode .btn-theme { background: #adb5bd; color: #000; }
         body.light-mode .maneuver-map-icon { background: #fff; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
 
     <div id="app">
-        <div id="top-bar">
-            <div id="search-wrapper">
-                <input type="text" id="search-input" placeholder="Cari lokasi tujuan..." autocomplete="off">
-                <ul id="search-results"></ul>
-            </div>
-            <button id="btn-theme">☀️</button>
-            <button id="btn-cancel">BATAL</button>
-            <button id="btn-start">START</button>
-            <button id="btn-hud">HUD</button>
+        <div id="search-wrapper">
+            <input type="text" id="search-input" placeholder="Cari lokasi tujuan..." autocomplete="off">
+            <ul id="search-results"></ul>
         </div>
-
         <div id="map"></div>
 
-        <div id="dashboard">
-            <div class="dash-row-1">
-                <div style="min-width: 80px;"><span id="val-speed" class="highlight">0</span> km/h</div>
-                
-                <div id="instruction-container">
-                    <div id="val-turn-icon">📍</div>
-                    <div id="val-instruction">Menunggu tujuan...</div>
-                </div>
-
-                <div id="val-clock" style="min-width: 60px; text-align: right;">00:00</div>
+        <div id="layout-normal">
+            <div id="top-bar">
+                <div id="normal-search-slot"></div>
+                <button class="btn-theme normal-btn">☀️</button>
+                <button class="btn-cancel normal-btn">BATAL</button>
+                <button class="btn-start normal-btn">START</button>
+                <button class="btn-hud normal-btn">HUD</button>
             </div>
-            <div class="dash-row-2">
-                <span id="val-odometer" style="color: #00ff00; font-weight: bold; margin-right: 15px;">ODO: 0.0 km</span>
-                <span id="val-street">Posisi tidak diketahui</span>
+
+            <div id="normal-map-slot"></div>
+
+            <div id="dashboard">
+                <div class="dash-row-1">
+                    <div style="min-width: 80px;"><span class="val-speed highlight">0</span> km/h</div>
+                    <div class="instruction-container">
+                        <div class="val-turn-icon">📍</div>
+                        <div class="val-instruction">Menunggu tujuan...</div>
+                    </div>
+                    <div class="val-clock" style="min-width: 60px; text-align: right;">00:00</div>
+                </div>
+                <div class="dash-row-2">
+                    <span class="val-odometer" style="color: #00ff00; font-weight: bold; margin-right: 15px;">ODO: 0.0 km</span>
+                    <span class="val-street">Posisi tidak diketahui</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="layout-hud">
+            <div class="hud-left">
+                <div class="hud-speed-container">
+                    <span class="val-speed">0</span>
+                    <span class="hud-speed-unit">km/h</span>
+                </div>
+                <div class="hud-middle-left">
+                    <div class="val-clock hud-clock">00:00</div>
+                    <div class="hud-nav-info">
+                        <span class="val-turn-icon">📍</span>
+                        <span class="val-instruction highlight">Tujuan</span>
+                    </div>
+                </div>
+                <div class="hud-buttons">
+                    <button class="btn-theme hud-btn">☀️</button>
+                    <button class="btn-cancel hud-btn">BATAL</button>
+                    <button class="btn-start hud-btn">START</button>
+                    <button class="btn-hud hud-btn" style="background:#6c757d;">NORMAL</button>
+                </div>
+            </div>
+
+            <div class="hud-right">
+                <div id="hud-search-slot"></div>
+                <div id="hud-map-slot"></div>
+                <div class="hud-dest-container">
+                    <div class="hud-dest-name val-street">Tujuan: -</div>
+                    <div class="hud-eta-info">
+                        <div>Sisa: <span class="val-rem-dist highlight">0 km</span></div>
+                        <div>ETA: <span class="val-eta highlight">--:--</span></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -161,37 +222,30 @@
         let map, userMarker, destinationMarker, routingControl, traversedLine, tileLayer;
         let userLat = 0, userLng = 0, currentHeading = 0;
         let isNavigating = false;
+        let isRerouting = false; // Flag untuk mencegah stuck di Menghitung Ulang
         let wakeLock = null;
         let totalDistance = 0; 
         
-        // Variabel untuk algoritma Rerouting & Warna Jalan
+        // Variabel Rute & ETA
         let routeCoordinates = []; 
         let offRouteCount = 0; 
-
-        // Variabel untuk Instruksi Navigasi & Voice
         let routeInstructions = [];
         let maneuverMarkers = [];
         let spokenInstructionIndex = -1;
+        let averageRouteSpeed = 13.8; // m/s (default ~50km/h)
 
-        // Elemen DOM
-        const elSpeed = document.getElementById('val-speed');
-        const elClock = document.getElementById('val-clock');
-        const elStreet = document.getElementById('val-street');
-        const elInstruction = document.getElementById('val-instruction');
-        const elTurnIcon = document.getElementById('val-turn-icon');
-        const elOdometer = document.getElementById('val-odometer');
-        const searchInput = document.getElementById('search-input');
-        const searchResults = document.getElementById('search-results');
-        const btnStart = document.getElementById('btn-start');
-        const btnCancel = document.getElementById('btn-cancel');
-        const btnHud = document.getElementById('btn-hud');
-        const btnTheme = document.getElementById('btn-theme');
+        // Setup awal DOM untuk menempelkan Search & Map ke Normal Mode
+        document.getElementById('normal-search-slot').appendChild(document.getElementById('search-wrapper'));
+        document.getElementById('normal-map-slot').appendChild(document.getElementById('map'));
+
+        // Helper Fungsi untuk mengupdate semua elemen text ganda (HUD & Normal)
+        function updateTexts(selector, text) {
+            document.querySelectorAll(selector).forEach(el => el.innerText = text);
+        }
 
         // --- SETUP PETA ---
         map = L.map('map', { zoomControl: false }).setView([-6.200000, 106.816666], 15);
-        tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19
-        }).addTo(map);
+        tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
 
         traversedLine = L.polyline([], { color: '#666666', weight: 6, opacity: 1 }).addTo(map);
 
@@ -201,26 +255,25 @@
             iconSize: [30, 30],
             iconAnchor: [15, 15]
         });
-
         userMarker = L.marker([-6.200000, 106.816666], {icon: userIcon, zIndexOffset: 1000}).addTo(map);
 
-        // --- HELPER: TEXT-TO-SPEECH ---
+        // --- TTS VOICE HELPER ---
         function speak(text) {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); 
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'id-ID';
-                utterance.rate = 1.0; 
-                window.speechSynthesis.speak(utterance);
+                window.speechSynthesis.resume(); // Trik mencegah voice engine tertidur
+                setTimeout(() => {
+                    window.speechSynthesis.cancel(); 
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'id-ID';
+                    utterance.rate = 1.0; 
+                    window.speechSynthesis.speak(utterance);
+                }, 50);
             }
         }
 
-        // --- HELPER: MENGUBAH MODIFIER OSRM MENJADI EMOJI PANAH ---
+        // --- EMOJI DIRECTION HELPER ---
         function getDirectionEmoji(modifier, type) {
-            if (!modifier) {
-                if (type && type.includes('arrive')) return '🏁';
-                return '⬆️';
-            }
+            if (!modifier) return (type && type.includes('arrive')) ? '🏁' : '⬆️';
             const mod = modifier.toLowerCase();
             if (mod.includes('right')) return '➡️';
             if (mod.includes('left')) return '⬅️';
@@ -228,13 +281,13 @@
             return '⬆️';
         }
 
-        // --- UPDATE JAM LOKAL ---
+        // --- JAM LOKAL ---
         setInterval(() => {
             const now = new Date();
-            elClock.innerText = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            updateTexts('.val-clock', now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0'));
         }, 1000);
 
-        // --- GPS TRACKING (WATCH POSITION) ---
+        // --- GPS TRACKING ---
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(
                 (pos) => {
@@ -245,12 +298,12 @@
 
                     if (userLat !== 0 && userLng !== 0) {
                         totalDistance += map.distance([userLat, userLng], [lat, lng]);
-                        elOdometer.innerText = `ODO: ${(totalDistance / 1000).toFixed(1)} km`;
+                        updateTexts('.val-odometer', `ODO: ${(totalDistance / 1000).toFixed(1)} km`);
                     }
 
                     userLat = lat; userLng = lng;
                     userMarker.setLatLng([lat, lng]);
-                    elSpeed.innerText = speed;
+                    updateTexts('.val-speed', speed);
 
                     if (heading !== null && !isNaN(heading)) {
                         currentHeading = heading;
@@ -264,8 +317,8 @@
                         map.setView([lat, lng], 15);
                     }
 
-                    // --- ALGORITMA DETEKSI JALUR & INSTRUKSI NAVIGASI ---
-                    if (routingControl && isNavigating && routeCoordinates.length > 0) {
+                    // --- LOGIKA NAVIGASI & INSTRUKSI ---
+                    if (routingControl && isNavigating && routeCoordinates.length > 0 && !isRerouting) {
                         let minDistance = Infinity;
                         let closestIndex = 0;
                         const currentPos = L.latLng(lat, lng);
@@ -278,28 +331,38 @@
                             }
                         }
 
+                        // Deteksi Salah Jalan
                         if (minDistance > 50) {
                             offRouteCount++;
                             if (offRouteCount >= 5) { 
-                                elTurnIcon.innerText = "🔄";
-                                elInstruction.innerText = "Menghitung ulang rute...";
+                                isRerouting = true;
+                                updateTexts('.val-turn-icon', "🔄");
+                                updateTexts('.val-instruction', "Menghitung ulang rute...");
                                 offRouteCount = 0;
                                 traversedLine.setLatLngs([]);
-                                
-                                routingControl.setWaypoints([
-                                    L.latLng(lat, lng),
-                                    destinationMarker.getLatLng()
-                                ]);
+                                routingControl.setWaypoints([ L.latLng(lat, lng), destinationMarker.getLatLng() ]);
                             }
                         } else {
                             offRouteCount = 0;
 
+                            // Timpa garis jalan
                             const passedPath = routeCoordinates.slice(0, closestIndex + 1);
                             traversedLine.setLatLngs(passedPath);
                             traversedLine.bringToFront(); 
                             userMarker.bringToFront(); 
 
-                            // --- LOGIKA INSTRUKSI (HUD & VOICE) ---
+                            // Hitung Sisa Jarak & ETA
+                            let remainingDist = 0;
+                            for(let i = closestIndex; i < routeCoordinates.length - 1; i++) {
+                                remainingDist += map.distance(routeCoordinates[i], routeCoordinates[i+1]);
+                            }
+                            updateTexts('.val-rem-dist', (remainingDist/1000).toFixed(1) + ' km');
+                            
+                            let etaSeconds = remainingDist / averageRouteSpeed;
+                            let etaDate = new Date(Date.now() + etaSeconds * 1000);
+                            updateTexts('.val-eta', etaDate.getHours().toString().padStart(2,'0') + ':' + etaDate.getMinutes().toString().padStart(2,'0'));
+
+                            // Cari Instruksi Selanjutnya (pastikan index instruksi > index posisi saat ini)
                             let nextInstIndex = -1;
                             for (let i = 0; i < routeInstructions.length; i++) {
                                 if (routeInstructions[i].index > closestIndex) {
@@ -308,20 +371,25 @@
                                 }
                             }
 
+                            // Update Teks Instruksi
                             if (nextInstIndex !== -1) {
                                 const nextInst = routeInstructions[nextInstIndex];
                                 const distToManeuver = map.distance(currentPos, routeCoordinates[nextInst.index]);
                                 
-                                elTurnIcon.innerText = getDirectionEmoji(nextInst.modifier, nextInst.type);
-                                elInstruction.innerText = `${nextInst.text} (${Math.round(distToManeuver)}m)`;
+                                updateTexts('.val-turn-icon', getDirectionEmoji(nextInst.modifier, nextInst.type));
+                                updateTexts('.val-instruction', `${nextInst.text} (${Math.round(distToManeuver)}m)`);
 
-                                if (distToManeuver < 100 && spokenInstructionIndex !== nextInstIndex) {
+                                // Trigger Voice jika jarak < 150m
+                                if (distToManeuver < 150 && spokenInstructionIndex !== nextInstIndex) {
                                     speak(`Dalam ${Math.round(distToManeuver)} meter, ${nextInst.text}`);
                                     spokenInstructionIndex = nextInstIndex; 
                                 }
+                            } else if (remainingDist < 50) {
+                                updateTexts('.val-turn-icon', "🏁");
+                                updateTexts('.val-instruction', "Tiba di tujuan");
                             } else {
-                                elTurnIcon.innerText = "🏁";
-                                elInstruction.innerText = "Tiba di tujuan";
+                                updateTexts('.val-turn-icon', "⬆️");
+                                updateTexts('.val-instruction', "Ikuti jalan ini");
                             }
                         }
                     }
@@ -331,8 +399,11 @@
             );
         }
 
-        // --- PENCARIAN LOKASI (AUTOCOMPLETE) ---
+        // --- PENCARIAN & AUTOCOMPLETE ---
         let searchTimeout;
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+        
         searchInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             const query = e.target.value;
@@ -356,11 +427,10 @@
             }, 500);
         });
 
-        // --- MEMILIH TUJUAN ---
         function selectDestination(lat, lng, name) {
             searchResults.style.display = 'none';
             searchInput.value = name.split(',')[0]; 
-            elStreet.innerText = "Tujuan: " + name;
+            updateTexts('.val-street', "Tujuan: " + name);
 
             if (destinationMarker) map.removeLayer(destinationMarker);
             destinationMarker = L.marker([lat, lng]).addTo(map);
@@ -383,6 +453,9 @@
                 
                 routeCoordinates = routes[0].coordinates;
                 routeInstructions = routes[0].instructions;
+                averageRouteSpeed = summary.totalDistance / summary.totalTime; // Hitung rerata kecepatan
+
+                isRerouting = false; // Buka kunci rerouting
                 offRouteCount = 0; 
                 spokenInstructionIndex = -1; 
                 traversedLine.setLatLngs([]); 
@@ -394,148 +467,122 @@
                     if (inst.index && inst.text && idx > 0) {
                         const coord = routeCoordinates[inst.index];
                         const iconSymbol = getDirectionEmoji(inst.modifier, inst.type);
-                        
                         const mIcon = L.divIcon({
-                            className: '',
-                            html: `<div class="maneuver-map-icon" style="width: 24px; height: 24px;">${iconSymbol}</div>`,
-                            iconSize: [28, 28],
-                            iconAnchor: [14, 14]
+                            className: '', html: `<div class="maneuver-map-icon" style="width: 24px; height: 24px;">${iconSymbol}</div>`,
+                            iconSize: [28, 28], iconAnchor: [14, 14]
                         });
-                        const marker = L.marker(coord, {icon: mIcon}).addTo(map);
-                        maneuverMarkers.push(marker);
+                        maneuverMarkers.push(L.marker(coord, {icon: mIcon}).addTo(map));
                     }
                 });
                 
                 if (!isNavigating) {
                     map.fitBounds(L.latLngBounds([userLat, userLng], [lat, lng]).pad(0.2));
-                    btnStart.style.display = 'block'; 
-                    elTurnIcon.innerText = "📍";
-                    elInstruction.innerText = `Total Jarak: ${(summary.totalDistance / 1000).toFixed(1)} km`;
+                    document.querySelectorAll('.btn-start').forEach(btn => btn.style.display = 'block');
+                    updateTexts('.val-turn-icon', "📍");
+                    updateTexts('.val-instruction', `Total Jarak: ${(summary.totalDistance / 1000).toFixed(1)} km`);
+                    updateTexts('.val-rem-dist', (summary.totalDistance / 1000).toFixed(1) + ' km');
+                } else {
+                    // Update text jika ini adalah hasil rerouting di tengah jalan
+                    updateTexts('.val-instruction', "Rute baru ditemukan. Ikuti jalan.");
                 }
                 
-                btnCancel.style.display = 'block';
+                document.querySelectorAll('.btn-cancel').forEach(btn => btn.style.display = 'block');
             });
         }
 
-        // --- TOMBOL TEMA (LIGHT/DARK MODE) ---
-        btnTheme.addEventListener('click', () => {
-            const body = document.body;
-            body.classList.toggle('light-mode');
-            
-            if (body.classList.contains('light-mode')) {
-                btnTheme.innerText = '🌙';
-                tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
-            } else {
-                btnTheme.innerText = '☀️';
-                tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
-            }
+        // --- BUTTON HANDLERS (Multi-Layout) ---
+        document.querySelectorAll('.btn-start').forEach(btn => {
+            btn.addEventListener('click', () => {
+                isNavigating = true;
+                document.querySelectorAll('.btn-start').forEach(b => b.style.display = 'none');
+                searchInput.disabled = true; 
+                
+                map.setView([userLat, userLng], 18);
+                map.dragging.disable(); map.touchZoom.disable(); map.doubleClickZoom.disable();
+                map.scrollWheelZoom.disable(); map.boxZoom.disable(); map.keyboard.disable();
+
+                updateTexts('.val-turn-icon', "⬆️");
+                updateTexts('.val-instruction', "Mulai ikuti rute...");
+                speak("Navigasi dimulai. Ikuti rute.");
+            });
         });
 
-        // --- TOMBOL START (MULAI NAVIGASI) ---
-        btnStart.addEventListener('click', () => {
-            isNavigating = true;
-            btnStart.style.display = 'none';
-            searchInput.disabled = true; 
-            
-            map.setView([userLat, userLng], 18);
-            map.dragging.disable();
-            map.touchZoom.disable();
-            map.doubleClickZoom.disable();
-            map.scrollWheelZoom.disable();
-            map.boxZoom.disable();
-            map.keyboard.disable();
+        document.querySelectorAll('.btn-cancel').forEach(btn => {
+            btn.addEventListener('click', () => {
+                isNavigating = false;
+                isRerouting = false;
+                
+                document.querySelectorAll('.btn-start, .btn-cancel').forEach(b => b.style.display = 'none');
+                searchInput.disabled = false; searchInput.value = '';
+                
+                updateTexts('.val-street', "Posisi tidak diketahui");
+                updateTexts('.val-turn-icon', "📍");
+                updateTexts('.val-instruction', "Menunggu tujuan...");
+                updateTexts('.val-rem-dist', "0 km");
+                updateTexts('.val-eta', "--:--");
 
-            elTurnIcon.innerText = "⬆️";
-            elInstruction.innerText = "Mulai ikuti rute...";
-            speak("Navigasi dimulai. Ikuti rute.");
+                routeCoordinates = []; routeInstructions = [];
+                offRouteCount = 0; spokenInstructionIndex = -1;
+                traversedLine.setLatLngs([]);
+                maneuverMarkers.forEach(m => map.removeLayer(m)); maneuverMarkers = [];
+
+                if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+                if (destinationMarker) { map.removeLayer(destinationMarker); destinationMarker = null; }
+
+                map.dragging.enable(); map.touchZoom.enable(); map.doubleClickZoom.enable();
+                map.scrollWheelZoom.enable(); map.boxZoom.enable(); map.keyboard.enable();
+                map.setView([userLat, userLng], 15);
+            });
         });
 
-        // --- TOMBOL BATAL (MEMBATALKAN RUTE) ---
-        btnCancel.addEventListener('click', () => {
-            isNavigating = false;
-            
-            btnStart.style.display = 'none';
-            btnCancel.style.display = 'none';
-            
-            searchInput.disabled = false;
-            searchInput.value = '';
-            
-            elStreet.innerText = "Posisi tidak diketahui";
-            elTurnIcon.innerText = "📍";
-            elInstruction.innerText = "Menunggu tujuan...";
-
-            routeCoordinates = [];
-            routeInstructions = [];
-            offRouteCount = 0;
-            spokenInstructionIndex = -1;
-            traversedLine.setLatLngs([]);
-            
-            maneuverMarkers.forEach(m => map.removeLayer(m));
-            maneuverMarkers = [];
-
-            if (routingControl) {
-                map.removeControl(routingControl);
-                routingControl = null;
-            }
-            if (destinationMarker) {
-                map.removeLayer(destinationMarker);
-                destinationMarker = null;
-            }
-
-            map.dragging.enable();
-            map.touchZoom.enable();
-            map.doubleClickZoom.enable();
-            map.scrollWheelZoom.enable();
-            map.boxZoom.enable();
-            map.keyboard.enable();
-
-            map.setView([userLat, userLng], 15);
+        document.querySelectorAll('.btn-theme').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.body.classList.toggle('light-mode');
+                const isLight = document.body.classList.contains('light-mode');
+                updateTexts('.btn-theme', isLight ? '🌙' : '☀️');
+                tileLayer.setUrl(`https://{s}.basemaps.cartocdn.com/${isLight ? 'light_all' : 'dark_all'}/{z}/{x}/{y}{r}.png`);
+            });
         });
 
-        // --- WAKE LOCK API ---
+        // --- HUD / NORMAL TOGGLE LAYOUT LOGIC ---
         async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                }
-            } catch (err) { console.error(`${err.name}, ${err.message}`); }
+            try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } 
+            catch (err) { console.error(err); }
         }
 
-        // --- TOMBOL HUD (LANSKAP CSS & MIRROR) ---
-        btnHud.addEventListener('click', async () => {
-            const body = document.body;
-            
-            if (!document.fullscreenElement) {
-                try {
-                    await document.documentElement.requestFullscreen();
-                } catch(err) { console.log("Fullscreen ditolak:", err); }
-            } else {
-                document.exitFullscreen();
-            }
+        document.querySelectorAll('.btn-hud').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const isNowHud = !document.body.classList.contains('hud-mode');
+                
+                if (!document.fullscreenElement) {
+                    try { await document.documentElement.requestFullscreen(); } catch(err) {}
+                } else if (!isNowHud) {
+                    document.exitFullscreen();
+                }
 
-            if (!body.classList.contains('hud-mode')) {
-                requestWakeLock();
-            } else if (wakeLock !== null) {
-                wakeLock.release();
-                wakeLock = null;
-            }
+                if (isNowHud) { requestWakeLock(); } 
+                else if (wakeLock) { wakeLock.release(); wakeLock = null; }
 
-            body.classList.toggle('hud-mode');
+                document.body.classList.toggle('hud-mode');
 
-            if (body.classList.contains('hud-mode')) {
-                btnHud.innerText = "NORMAL";
-                btnHud.style.background = "#6c757d";
-            } else {
-                btnHud.innerText = "HUD";
-                btnHud.style.background = "#dc3545";
-            }
+                // Pindahkan elemen map dan search ke layout yang aktif
+                if (isNowHud) {
+                    document.getElementById('hud-search-slot').appendChild(document.getElementById('search-wrapper'));
+                    document.getElementById('hud-map-slot').appendChild(document.getElementById('map'));
+                    document.getElementById('layout-normal').style.display = 'none';
+                    document.getElementById('layout-hud').style.display = 'flex';
+                } else {
+                    document.getElementById('normal-search-slot').appendChild(document.getElementById('search-wrapper'));
+                    document.getElementById('normal-map-slot').appendChild(document.getElementById('map'));
+                    document.getElementById('layout-hud').style.display = 'none';
+                    document.getElementById('layout-normal').style.display = 'flex';
+                }
 
-            setTimeout(() => { map.invalidateSize(); }, 500);
+                setTimeout(() => { map.invalidateSize(); }, 300);
+            });
         });
 
-        window.addEventListener('resize', () => {
-            setTimeout(() => { map.invalidateSize(); }, 500);
-        });
+        window.addEventListener('resize', () => { setTimeout(() => { map.invalidateSize(); }, 300); });
     </script>
 </body>
 </html>
