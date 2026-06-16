@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Live Navigation HUD (Full Legacy Restored)</title>
+    <title>Live Navigation HUD (Legacy Support)</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
@@ -11,13 +11,13 @@
     <style>
         /* BASE LAYOUT */
         body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
+            margin: 0; padding: 0; width: 100%; height: 100%; /* Mengganti dvh dengan %/vh */
             background-color: #000; overflow: hidden;
             transition: background-color 0.3s, color 0.3s;
             font-family: Arial, sans-serif; color: #fff;
         }
 
-        /* --- TAMPILAN MODE NORMAL (Menggunakan Flexbox Kompatibel) --- */
+        /* --- MODE NORMAL (Flexbox Legacy) --- */
         #app {
             position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
@@ -27,7 +27,7 @@
         }
 
         #top-bar {
-            display: flex; padding: 10px; background: #111; z-index: 1000; align-items: center;
+            display: flex; padding: 10px; background: #111; z-index: 1000;
         }
         #search-wrapper { position: relative; flex-grow: 1; margin-right: 10px; }
         #search-input {
@@ -51,19 +51,20 @@
         #btn-hud { background: #dc3545; }
         #btn-theme { background: #555; padding: 10px; font-size: 16px; }
 
-        #map-container { flex-grow: 1; position: relative; width: 100%; height: 100%; z-index: 1; }
+        #map-container { flex-grow: 1; position: relative; width: 100%; z-index: 1; }
         #map { width: 100%; height: 100%; }
         .leaflet-control-zoom, .leaflet-routing-container { display: none !important; }
 
         #dashboard {
-            background: #111; z-index: 1000; padding: 10px 15px; 
+            background: #111; z-index: 1000;
+            padding: 10px 15px; 
             display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
         }
-        #dash-speed { font-size: 24px; font-weight: bold; white-space: nowrap; }
+        #dash-speed { font-size: 24px; font-weight: bold; white-space: nowrap; margin-right: 15px;}
         #instruction-container { display: flex; align-items: center; justify-content: center; flex-grow: 1; overflow: hidden; }
         #val-turn-icon { font-size: 32px; color: #ffcc00; margin-right: 10px; flex-shrink: 0; }
         #val-instruction { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #00ff00; }
-        #dash-clock { font-size: 24px; font-weight: bold; text-align: right; }
+        #dash-clock { font-size: 24px; font-weight: bold; text-align: right; margin-left: 15px; }
         
         #dash-info { 
             width: 100%; display: flex; flex-wrap: wrap; justify-content: center; 
@@ -86,7 +87,7 @@
         body.light-mode #btn-theme { background: #adb5bd; color: #000; }
         body.light-mode .maneuver-map-icon { background: #fff; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
 
-        /* --- TAMPILAN MODE HUD REPLIKA ASLI (Aman untuk Android 5.1) --- */
+        /* --- HUD MODE CSS (Flexbox/Absolute fallback untuk menghindari CSS Grid) --- */
         @media (orientation: portrait) {
             body.hud-mode #app {
                 width: 100vh; height: 100vw;
@@ -103,58 +104,65 @@
         }
 
         body.hud-mode #app {
-            flex-direction: row; padding: 15px; background: #000; box-sizing: border-box;
+            flex-direction: row; flex-wrap: wrap;
+            padding: 15px; background: #000; box-sizing: border-box;
         }
 
-        /* Panel Kiri & Kanan Pengganti CSS Grid */
-        #left-hud-panel, #right-hud-panel {
-            display: none; width: 50%; height: 100%; box-sizing: border-box; flex-direction: column;
+        body.hud-mode #top-bar { 
+            position: absolute; bottom: 15px; left: 15px; width: calc(50% - 25px); 
+            background: transparent; padding: 0; display: flex; flex-direction: column-reverse; z-index: 2000;
         }
-        #left-hud-panel { padding-right: 15px; }
-        #right-hud-panel { padding-left: 15px; }
+        
+        body.hud-mode #btn-group { margin-bottom: 15px; justify-content: flex-start; }
+        body.hud-mode #btn-group button { margin-left: 0; margin-right: 10px; }
+        
+        body.hud-mode #search-wrapper { width: 100%; margin-right: 0; }
+        body.hud-mode #search-results { bottom: 100%; top: auto; }
 
-        /* Penyesuaian Komponen Kiri */
+        body.hud-mode #dashboard { 
+            position: absolute; top: 15px; left: 15px; width: calc(50% - 25px); height: calc(100% - 150px);
+            background: transparent; padding: 0; align-items: flex-start; align-content: flex-start;
+        }
+
+        body.hud-mode #map-container {
+            position: absolute; top: 15px; right: 15px; width: calc(50% - 25px); height: calc(100% - 120px);
+            border: 2px solid #444; border-radius: 10px; margin: 0;
+        }
+
+        /* Kiri: Kecepatan */
         body.hud-mode #dash-speed { 
-            font-size: 100px; text-align: left; 
-            display: flex; align-items: baseline; justify-content: flex-start; margin-bottom: auto;
+            width: 100%; font-size: 100px; text-align: left; 
+            display: flex; align-items: baseline; justify-content: flex-start; margin-right: 0;
         }
         body.hud-mode #dash-speed .highlight { font-size: 120px; line-height: 0.8; }
         body.hud-mode #dash-speed .unit { font-size: 32px; margin-left: 10px; color:#fff; }
 
+        /* Kiri: Navigasi */
         body.hud-mode #instruction-container { 
-            display: flex; flex-direction: row; align-items: flex-start; justify-content: flex-start; 
-            padding-top: 20px; overflow: visible; margin-bottom: auto; flex-grow: 0;
+            width: 100%; display: flex; flex-direction: row; align-items: flex-start; justify-content: flex-start; 
+            padding-top: 20px; overflow: visible;
         }
         body.hud-mode #val-turn-icon { font-size: 70px; margin-right: 20px; margin-bottom: 0; line-height: 1;}
         body.hud-mode #val-instruction { font-size: 36px; white-space: normal; text-align: left; }
         
+        /* Kiri: Jam */
         body.hud-mode #dash-clock { 
-            font-size: 40px; text-align: left; margin-bottom: 20px;
-        }
-        body.hud-mode #btn-group button { margin-left: 0; margin-right: 10px; }
-
-        /* Penyesuaian Komponen Kanan */
-        body.hud-mode #search-wrapper { width: 100%; margin-bottom: 10px; }
-        body.hud-mode #search-results { bottom: 100%; top: auto; }
-        
-        body.hud-mode #map-container {
-            flex-grow: 1; width: 100%; border: 2px solid #444; border-radius: 10px; margin-bottom: 10px;
+            width: 100%; font-size: 40px; text-align: left; margin-left: 0; margin-top: 20px;
         }
 
+        /* Kanan Bawah: Info Tujuan */
         body.hud-mode #dash-info { 
+            position: absolute; bottom: 15px; right: 15px; width: calc(50% - 25px);
             display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; 
-            font-size: 20px; text-align: left; margin-top: 0; padding-bottom: 5px; color: #ddd;
+            font-size: 20px; text-align: left; margin-top: 0; padding-bottom: 5px;
         }
         body.hud-mode #val-street { font-weight: bold; color: #fff; font-size: 22px; }
-        body.hud-mode #dash-info span { margin: 3px 0; display: block; width: 100%; text-align: left; }
+        body.hud-mode #dash-info span { margin: 5px 0 0 0; display: block; width: 100%; }
     </style>
 </head>
 <body>
 
     <div id="app">
-        <div id="left-hud-panel"></div>
-        <div id="right-hud-panel"></div>
-
         <div id="top-bar">
             <div id="search-wrapper">
                 <input type="text" id="search-input" placeholder="Cari lokasi tujuan..." autocomplete="off">
@@ -199,7 +207,7 @@
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
 
     <script>
-        // --- DEKLARASI VARIABEL (ES5 Standar untuk OS Lama) ---
+        // --- INISIALISASI VARIABEL (Menggunakan 'var' untuk ES5 kompatibilitas) ---
         var map, userMarker, destinationMarker, routingControl, traversedLine, tileLayer;
         var userLat = 0, userLng = 0, currentHeading = 0;
         var isNavigating = false;
@@ -230,11 +238,20 @@
         var btnHud = document.getElementById('btn-hud');
         var btnTheme = document.getElementById('btn-theme');
 
-        // --- SETUP PETA (Menggunakan HTTP CartoDB agar fitur Tema Berfungsi Bebas Kendala SSL) ---
+        // --- SETUP PETA ---
         map = L.map('map', { zoomControl: false }).setView([-6.200000, 106.816666], 15);
-        tileLayer = L.tileLayer('http://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+        
+        // SOLUSI 1: Gunakan server Google Maps via jalur HTTP biasa (paling ampuh untuk Android jadul)
+        tileLayer = L.tileLayer('http://mt0.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}', {
             maxZoom: 19
         }).addTo(map);
+
+        // --- Perbaikan Tambahan ---
+        // Memaksa browser lama untuk menggambar ulang ukuran peta setelah 1 detik
+        // Ini mengatasi bug di mana peta tidak mau muncul sepenuhnya di dalam kotak flexbox
+        setTimeout(function() {
+            map.invalidateSize();
+        }, 1000);
 
         traversedLine = L.polyline([], { color: '#666666', weight: 6, opacity: 1 }).addTo(map);
 
@@ -247,12 +264,12 @@
 
         userMarker = L.marker([-6.200000, 106.816666], {icon: userIcon, zIndexOffset: 1000}).addTo(map);
 
-        // --- HELPER: FORMAT ANGKA (Pengganti padStart ES6) ---
+        // --- HELPER: PAD NUMBER (Pengganti padStart yang tidak jalan di Android jadul) ---
         function padNumber(num) {
             return num < 10 ? '0' + num : num;
         }
 
-        // --- HELPER: TEXT-TO-SPEECH (Navigasi Suara) ---
+        // --- HELPER: TEXT-TO-SPEECH ---
         function speak(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); 
@@ -263,7 +280,7 @@
             }
         }
 
-        // --- HELPER: ARTI DIRECTION MODIFIER ---
+        // --- HELPER: MODIFIER OSRM -> EMOJI ---
         function getDirectionEmoji(modifier, type) {
             if (!modifier) {
                 if (type && type.indexOf('arrive') !== -1) return '🏁';
@@ -276,13 +293,13 @@
             return '⬆️';
         }
 
-        // --- UPDATE JAM AKTIF ---
+        // --- UPDATE JAM LOKAL ---
         setInterval(function() {
             var now = new Date();
             elClock.innerText = padNumber(now.getHours()) + ':' + padNumber(now.getMinutes());
         }, 1000);
 
-        // --- GPS & REALTIME GEOLOCATION ---
+        // --- GPS TRACKING ---
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(
                 function(pos) {
@@ -412,7 +429,7 @@
             );
         }
 
-        // --- PENCARIAN TEMPAT (HTTP AJAX Tradisional) ---
+        // --- PENCARIAN LOKASI (Menggunakan XMLHttpRequest / AJAX Klasik) ---
         var searchTimeout;
         searchInput.addEventListener('input', function(e) {
             clearTimeout(searchTimeout);
@@ -421,8 +438,7 @@
 
             searchTimeout = setTimeout(function() {
                 var xhr = new XMLHttpRequest();
-                // Menggunakan HTTP biasa untuk menghindari masalah SSL handshaking di Lollipop
-                xhr.open('GET', 'http://nominatim.openstreetmap.org/search?format=json&q=' + query + '&countrycodes=id&limit=5', true);
+                xhr.open('GET', 'https://nominatim.openstreetmap.org/search?format=json&q=' + query + '&countrycodes=id&limit=5', true);
                 xhr.onload = function() {
                     if (xhr.status >= 200 && xhr.status < 400) {
                         var data = JSON.parse(xhr.responseText);
@@ -442,7 +458,7 @@
             }, 500);
         });
 
-        // --- EKSEKUSI RUTE DAN EVENT TRACKING ---
+        // --- MEMILIH TUJUAN ---
         function selectDestination(lat, lng, name) {
             searchResults.style.display = 'none';
             searchInput.value = name.split(',')[0]; 
@@ -499,25 +515,26 @@
                     elTurnIcon.innerText = "📍";
                     elInstruction.innerText = "Total Jarak: " + (summary.totalDistance / 1000).toFixed(1) + " km";
                 }
+                
                 btnCancel.style.display = 'block';
             });
         }
 
-        // --- SISTEM TOGGLE TEMA (Berfungsi Penuh Berkat Jalur HTTP) ---
+        // --- TOMBOL TEMA ---
         btnTheme.addEventListener('click', function() {
             var body = document.body;
             body.classList.toggle('light-mode');
             
             if (body.classList.contains('light-mode')) {
                 btnTheme.innerText = '🌙';
-                tileLayer.setUrl('http://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png');
+                tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
             } else {
                 btnTheme.innerText = '☀️';
-                tileLayer.setUrl('http://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png');
+                tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
             }
         });
 
-        // --- TOMBOL NAVIGASI START ---
+        // --- TOMBOL START ---
         btnStart.addEventListener('click', function() {
             isNavigating = true;
             btnStart.style.display = 'none';
@@ -533,7 +550,7 @@
             speak("Navigasi dimulai.");
         });
 
-        // --- TOMBOL NAVIGASI BATAL ---
+        // --- TOMBOL BATAL ---
         btnCancel.addEventListener('click', function() {
             isNavigating = false;
             isRecalculating = false;
@@ -561,12 +578,12 @@
             if (destinationMarker) { map.removeLayer(destinationMarker); destinationMarker = null; }
 
             map.dragging.enable(); map.touchZoom.enable(); map.doubleClickZoom.enable();
-            map.scrollWheelZoom.disable(); map.boxZoom.disable(); map.keyboard.disable();
+            map.scrollWheelZoom.enable(); map.boxZoom.enable(); map.keyboard.enable();
 
             map.setView([userLat, userLng], 15);
         });
 
-        // --- AUTOMATIC WAKE LOCK SYSTEM ---
+        // --- WAKE LOCK API (Tanpa async/await agar parser lawas tidak error) ---
         function requestWakeLock() {
             if ('wakeLock' in navigator && navigator.wakeLock.request) {
                 navigator.wakeLock.request('screen').then(function(lock) {
@@ -577,7 +594,7 @@
             }
         }
 
-        // --- LOGIKA UTAMA PERPINDAHAN MODE HUD (DOM Dynamic Relocation) ---
+        // --- TOMBOL HUD ---
         btnHud.addEventListener('click', function() {
             var body = document.body;
             
@@ -589,64 +606,26 @@
                 document.exitFullscreen(); 
             }
 
+            if (!body.classList.contains('hud-mode')) {
+                requestWakeLock();
+            } else if (wakeLock !== null) {
+                wakeLock.release(); wakeLock = null;
+            }
+
             body.classList.toggle('hud-mode');
 
-            var isHud = body.classList.contains('hud-mode');
-            var leftPanel = document.getElementById('left-hud-panel');
-            var rightPanel = document.getElementById('right-hud-panel');
-            var topBar = document.getElementById('top-bar');
-            var dashboard = document.getElementById('dashboard');
-            var app = document.getElementById('app');
-
-            if (isHud) {
-                requestWakeLock();
+            if (body.classList.contains('hud-mode')) {
                 btnHud.innerText = "NORMAL";
                 btnHud.style.background = "#6c757d";
-
-                // Pindahkan elemen secara dinamis ke panel kiri/kanan HUD (Aman di Android 5.1)
-                leftPanel.appendChild(document.getElementById('dash-speed'));
-                leftPanel.appendChild(document.getElementById('instruction-container'));
-                leftPanel.appendChild(document.getElementById('dash-clock'));
-                leftPanel.appendChild(document.getElementById('btn-group'));
-
-                rightPanel.appendChild(document.getElementById('search-wrapper'));
-                rightPanel.appendChild(document.getElementById('map-container'));
-                rightPanel.appendChild(document.getElementById('dash-info'));
-
-                topBar.style.display = 'none';
-                dashboard.style.display = 'none';
-                leftPanel.style.display = 'flex';
-                rightPanel.style.display = 'flex';
             } else {
-                if (wakeLock !== null) {
-                    wakeLock.release(); wakeLock = null;
-                }
                 btnHud.innerText = "HUD";
                 btnHud.style.background = "#dc3545";
-
-                // Kembalikan elemen ke susunan dokumen Normal seperti sedia kala
-                topBar.appendChild(document.getElementById('search-wrapper'));
-                topBar.appendChild(document.getElementById('btn-group'));
-
-                app.insertBefore(document.getElementById('map-container'), dashboard);
-
-                dashboard.appendChild(document.getElementById('dash-speed'));
-                dashboard.appendChild(document.getElementById('instruction-container'));
-                dashboard.appendChild(document.getElementById('dash-clock'));
-                dashboard.appendChild(document.getElementById('dash-info'));
-
-                topBar.style.display = 'flex';
-                dashboard.style.display = 'flex';
-                leftPanel.style.display = 'none';
-                rightPanel.style.display = 'none';
             }
 
             setTimeout(function() { map.invalidateSize(); }, 500);
         });
 
-        // Paksa hitung ulang render peta jika ukuran layar berubah
         window.addEventListener('resize', function() { setTimeout(function() { map.invalidateSize(); }, 500); });
-        setTimeout(function() { map.invalidateSize(); }, 1000); // Trigger muat awal
     </script>
 </body>
 </html>
