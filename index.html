@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Live Navigation HUD</title>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="http://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="http://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
 
     <style>
         /* BASE LAYOUT */
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100dvh;
-            background-color: #000; overflow: hidden; /* Mencegah scroll dan terpotong */
+            background-color: #000; overflow: hidden;
             transition: background-color 0.3s, color 0.3s;
             font-family: Arial, sans-serif; color: #fff;
         }
@@ -216,15 +216,15 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
+    <script src="http://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="http://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
 
     <script>
         // --- INISIALISASI VARIABEL ---
         let map, userMarker, destinationMarker, routingControl, traversedLine, tileLayer;
         let userLat = 0, userLng = 0, currentHeading = 0;
         let isNavigating = false;
-        let isRecalculating = false; // Flag untuk bug stuck teks
+        let isRecalculating = false; 
         let wakeLock = null;
         let totalDistance = 0; 
         
@@ -233,7 +233,7 @@
 
         let routeInstructions = [];
         let maneuverMarkers = [];
-        let spokenInstructionIndex = -1; // Flag pencegah suara double/stuck
+        let spokenInstructionIndex = -1; 
 
         // Elemen DOM
         const elSpeed = document.getElementById('val-speed');
@@ -253,7 +253,9 @@
 
         // --- SETUP PETA ---
         map = L.map('map', { zoomControl: false }).setView([-6.200000, 106.816666], 15);
-        tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        
+        // Ubah protokol tile server menjadi HTTP
+        tileLayer = L.tileLayer('http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19
         }).addTo(map);
 
@@ -305,7 +307,7 @@
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
                     const speedKmh = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0; 
-                    const speedMps = pos.coords.speed || 8.33; // Default 30km/h jika null
+                    const speedMps = pos.coords.speed || 8.33; 
                     const heading = pos.coords.heading;
 
                     if (userLat !== 0 && userLng !== 0) {
@@ -329,7 +331,6 @@
                         map.setView([lat, lng], 15);
                     }
 
-                    // --- LOGIKA NAVIGASI & INSTRUKSI ---
                     if (routingControl && isNavigating && routeCoordinates.length > 0) {
                         let minDistance = Infinity;
                         let closestIndex = 0;
@@ -343,16 +344,13 @@
                             }
                         }
 
-                        // Deteksi Keluar Jalur
                         if (minDistance > 50) {
                             offRouteCount++;
-                            // Jika keliru jalan > 5 tik dan tidak sedang loading
                             if (offRouteCount >= 5 && !isRecalculating) { 
                                 isRecalculating = true;
                                 elTurnIcon.innerText = "🔄";
                                 elInstruction.innerText = "Menghitung ulang rute...";
                                 
-                                // Bersihkan rute lama agar logic tidak tersangkut
                                 routeInstructions = [];
                                 spokenInstructionIndex = -1;
                                 traversedLine.setLatLngs([]);
@@ -370,7 +368,6 @@
                             traversedLine.bringToFront(); 
                             userMarker.bringToFront(); 
 
-                            // Hitung Sisa Jarak & ETA Akurat dari Array Koordinat
                             let remDist = 0;
                             if (closestIndex < routeCoordinates.length) {
                                 remDist = map.distance(currentPos, routeCoordinates[closestIndex]);
@@ -390,13 +387,11 @@
                                 elEta.style.display = 'block';
                             }
 
-                            // Temukan Manuver Berikutnya
                             let nextInst = null;
                             let nextInstIndex = -1;
                             let distToManeuver = 0;
 
                             for (let i = 0; i < routeInstructions.length; i++) {
-                                // OSRM index adalah titik koordinat saat manuver terjadi
                                 if (routeInstructions[i].index > closestIndex) {
                                     nextInst = routeInstructions[i];
                                     distToManeuver = map.distance(currentPos, routeCoordinates[nextInst.index]);
@@ -409,7 +404,6 @@
                                 elTurnIcon.innerText = getDirectionEmoji(nextInst.modifier, nextInst.type);
                                 elInstruction.innerText = `${nextInst.text} (${Math.round(distToManeuver)}m)`;
 
-                                // Voice Nav: Trigger < 150m (diperlebar agar tidak terlewat)
                                 if (distToManeuver < 150 && spokenInstructionIndex !== nextInstIndex) {
                                     speak(`Dalam ${Math.round(distToManeuver)} meter, ${nextInst.text}`);
                                     spokenInstructionIndex = nextInstIndex; 
@@ -444,7 +438,8 @@
             if (query.length < 3) { searchResults.style.display = 'none'; return; }
 
             searchTimeout = setTimeout(() => {
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&countrycodes=id&limit=5`)
+                // Ubah protokol pencarian nominatim menjadi HTTP
+                fetch(`http://nominatim.openstreetmap.org/search?format=json&q=${query}&countrycodes=id&limit=5`)
                 .then(res => res.json())
                 .then(data => {
                     searchResults.innerHTML = '';
@@ -457,7 +452,8 @@
                         });
                         searchResults.style.display = 'block';
                     }
-                });
+                })
+                .catch(err => console.error("Search Error:", err));
             }, 500);
         });
 
@@ -489,8 +485,8 @@
                 routeCoordinates = routes[0].coordinates;
                 routeInstructions = routes[0].instructions;
                 offRouteCount = 0; 
-                isRecalculating = false; // Flag reset setelah rute ditemukan
-                spokenInstructionIndex = -1; // Reset memory voice
+                isRecalculating = false; 
+                spokenInstructionIndex = -1; 
                 traversedLine.setLatLngs([]); 
                 
                 maneuverMarkers.forEach(m => map.removeLayer(m));
@@ -530,10 +526,12 @@
             
             if (body.classList.contains('light-mode')) {
                 btnTheme.innerText = '🌙';
-                tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
+                // Ubah ke HTTP
+                tileLayer.setUrl('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
             } else {
                 btnTheme.innerText = '☀️';
-                tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+                // Ubah ke HTTP
+                tileLayer.setUrl('http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
             }
         });
 
