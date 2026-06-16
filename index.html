@@ -11,7 +11,7 @@
     <style>
         /* BASE LAYOUT */
         body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
+            margin: 0; padding: 0; width: 100%; height: 100%; /* Mengganti dvh dengan %/vh */
             background-color: #000; overflow: hidden;
             transition: background-color 0.3s, color 0.3s;
             font-family: Arial, sans-serif; color: #fff;
@@ -129,36 +129,35 @@
             border: 2px solid #444; border-radius: 10px; margin: 0;
         }
 
-        /* --- PERBAIKAN UKURAN FONT AGAR TIDAK BERTUMPUK --- */
         /* Kiri: Kecepatan */
         body.hud-mode #dash-speed { 
-            width: 100%; text-align: left; 
+            width: 100%; font-size: 100px; text-align: left; 
             display: flex; align-items: baseline; justify-content: flex-start; margin-right: 0;
         }
-        body.hud-mode #dash-speed .highlight { font-size: 70px; line-height: 1; }
-        body.hud-mode #dash-speed .unit { font-size: 24px; margin-left: 8px; color:#fff; }
+        body.hud-mode #dash-speed .highlight { font-size: 120px; line-height: 0.8; }
+        body.hud-mode #dash-speed .unit { font-size: 32px; margin-left: 10px; color:#fff; }
 
         /* Kiri: Navigasi */
         body.hud-mode #instruction-container { 
-            width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; 
-            padding-top: 15px; overflow: hidden;
+            width: 100%; display: flex; flex-direction: row; align-items: flex-start; justify-content: flex-start; 
+            padding-top: 20px; overflow: visible;
         }
-        body.hud-mode #val-turn-icon { font-size: 45px; margin-right: 15px; margin-bottom: 0; line-height: 1;}
-        body.hud-mode #val-instruction { font-size: 22px; white-space: normal; text-align: left; line-height: 1.2; max-height: 55px; overflow: hidden; }
+        body.hud-mode #val-turn-icon { font-size: 70px; margin-right: 20px; margin-bottom: 0; line-height: 1;}
+        body.hud-mode #val-instruction { font-size: 36px; white-space: normal; text-align: left; }
         
         /* Kiri: Jam */
         body.hud-mode #dash-clock { 
-            width: 100%; font-size: 32px; text-align: left; margin-left: 0; margin-top: 15px;
+            width: 100%; font-size: 40px; text-align: left; margin-left: 0; margin-top: 20px;
         }
 
-        /* Kanan Bawah: Info Tujuan, Odo, ETA */
+        /* Kanan Bawah: Info Tujuan */
         body.hud-mode #dash-info { 
             position: absolute; bottom: 15px; right: 15px; width: calc(50% - 25px);
             display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; 
-            font-size: 16px; text-align: left; margin-top: 0; padding-bottom: 5px; line-height: 1.4;
+            font-size: 20px; text-align: left; margin-top: 0; padding-bottom: 5px;
         }
-        body.hud-mode #val-street { font-weight: bold; color: #fff; font-size: 18px; margin-bottom: 5px; }
-        body.hud-mode #dash-info span { margin: 2px 0; display: block; width: 100%; }
+        body.hud-mode #val-street { font-weight: bold; color: #fff; font-size: 22px; }
+        body.hud-mode #dash-info span { margin: 5px 0 0 0; display: block; width: 100%; }
     </style>
 </head>
 <body>
@@ -249,6 +248,7 @@
 
         // --- Perbaikan Tambahan ---
         // Memaksa browser lama untuk menggambar ulang ukuran peta setelah 1 detik
+        // Ini mengatasi bug di mana peta tidak mau muncul sepenuhnya di dalam kotak flexbox
         setTimeout(function() {
             map.invalidateSize();
         }, 1000);
@@ -264,7 +264,7 @@
 
         userMarker = L.marker([-6.200000, 106.816666], {icon: userIcon, zIndexOffset: 1000}).addTo(map);
 
-        // --- HELPER: PAD NUMBER ---
+        // --- HELPER: PAD NUMBER (Pengganti padStart yang tidak jalan di Android jadul) ---
         function padNumber(num) {
             return num < 10 ? '0' + num : num;
         }
@@ -429,7 +429,7 @@
             );
         }
 
-        // --- PENCARIAN LOKASI ---
+        // --- PENCARIAN LOKASI (Menggunakan XMLHttpRequest / AJAX Klasik) ---
         var searchTimeout;
         searchInput.addEventListener('input', function(e) {
             clearTimeout(searchTimeout);
@@ -530,7 +530,7 @@
                 tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
             } else {
                 btnTheme.innerText = '☀️';
-                tileLayer.setUrl('http://mt0.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}');
+                tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
             }
         });
 
@@ -583,7 +583,7 @@
             map.setView([userLat, userLng], 15);
         });
 
-        // --- WAKE LOCK API ---
+        // --- WAKE LOCK API (Tanpa async/await agar parser lawas tidak error) ---
         function requestWakeLock() {
             if ('wakeLock' in navigator && navigator.wakeLock.request) {
                 navigator.wakeLock.request('screen').then(function(lock) {
