@@ -238,11 +238,19 @@
         var btnHud = document.getElementById('btn-hud');
         var btnTheme = document.getElementById('btn-theme');
 
-        // --- SETUP PETA ---
         map = L.map('map', { zoomControl: false }).setView([-6.200000, 106.816666], 15);
-        tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        
+        // SOLUSI 1: Gunakan server Google Maps via jalur HTTP biasa (paling ampuh untuk Android jadul)
+        tileLayer = L.tileLayer('http://mt0.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}', {
             maxZoom: 19
         }).addTo(map);
+
+        // --- Perbaikan Tambahan ---
+        // Memaksa browser lama untuk menggambar ulang ukuran peta setelah 1 detik
+        // Ini mengatasi bug di mana peta tidak mau muncul sepenuhnya di dalam kotak flexbox
+        setTimeout(function() {
+            map.invalidateSize();
+        }, 1000);
 
         traversedLine = L.polyline([], { color: '#666666', weight: 6, opacity: 1 }).addTo(map);
 
